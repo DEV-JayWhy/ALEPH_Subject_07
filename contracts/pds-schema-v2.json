@@ -1,0 +1,77 @@
+{
+  "contract": "pds-schema-v2",
+  "database": "Supabase PostgreSQL",
+  "schema": "public",
+  "source": "260928_ALEPH06_초기생성_FINAL.sql applied by project owner; no application migration",
+  "time_rules": {
+    "calendar_dates": "date; preserve the selected Seoul calendar date without UTC conversion",
+    "event_instants": "timestamptz; ISO 8601 with offset on input, displayed in Asia/Seoul",
+    "overdue_today": "(now() at time zone 'Asia/Seoul')::date",
+    "duration_unit": "integer minutes",
+    "actual_duration": "entered work minutes, not forced to equal wall-clock end minus start"
+  },
+  "tables": {
+    "plans": {
+      "primary_key": ["id"],
+      "columns": {"id":"uuid default gen_random_uuid()", "title":"text not null", "starts_on":"date not null", "ends_on":"date not null", "priority":"text not null", "success_criteria":"text not null", "estimated_minutes":"integer not null", "revision_no":"integer not null default 1", "created_at":"timestamptz not null default now()", "updated_at":"timestamptz not null default now()"},
+      "checks": ["btrim(title) length > 0", "starts_on <= ends_on", "priority in (low, medium, high)", "btrim(success_criteria) length > 0", "estimated_minutes >= 0", "revision_no >= 1"],
+      "triggers": ["plans_before_update increments revision_no only when plan content changes", "plans_after_write snapshots initial and changed plan versions"]
+    },
+    "plan_revisions": {
+      "primary_key": ["plan_id", "revision_no"],
+      "columns": {"plan_id":"uuid not null", "revision_no":"integer not null", "title":"text not null", "starts_on":"date not null", "ends_on":"date not null", "priority":"text not null", "success_criteria":"text not null", "estimated_minutes":"integer not null", "recorded_at":"timestamptz not null default now()"},
+      "foreign_keys": [{"columns":["plan_id"],"references":"plans(id)","on_delete":"restrict"}],
+      "checks": ["revision_no >= 1"],
+      "app_access": "read only; plan triggers insert snapshots"
+    },
+    "tasks": {
+      "primary_key": ["id"],
+      "columns": {"id":"uuid default gen_random_uuid()", "plan_id":"uuid not null", "title":"text not null", "details":"text not null default ''", "due_on":"date not null", "priority":"text not null", "tag":"text not null", "estimated_minutes":"integer not null", "deleted_at":"timestamptz nullable", "created_at":"timestamptz not null default now()"},
+      "foreign_keys": [{"columns":["plan_id"],"references":"plans(id)","on_delete":"restrict"}],
+      "checks": ["btrim(title) length > 0", "priority in (low, medium, high)", "btrim(tag) length > 0", "estimated_minutes >= 0"],
+      "indexes": ["(plan_id, due_on, id) where deleted_at is null"]
+    },
+    "work_logs": {
+      "primary_key": ["id"],
+      "columns": {"id":"uuid default gen_random_uuid()", "task_id":"uuid not null", "started_at":"timestamptz not null", "ended_at":"timestamptz not null", "actual_minutes":"integer not null", "blocker_reason":"text not null default ''", "note":"text not null default ''", "created_at":"timestamptz not null default now()"},
+      "foreign_keys": [{"columns":["task_id"],"references":"tasks(id)","on_delete":"restrict"}],
+      "checks": ["ended_at > started_at", "actual_minutes >= 0"],
+      "indexes": ["task_id"]
+    },
+    "task_completions": {
+      "primary_key": ["id"],
+      "columns": {"id":"uuid default gen_random_uuid()", "task_id":"uuid not null", "request_key":"uuid not null", "completed_at":"timestamptz not null default now()", "undone_at":"timestamptz nullable"},
+      "foreign_keys": [{"columns":["task_id"],"references":"tasks(id)","on_delete":"restrict"}],
+      "unique": ["request_key", "task_id where undone_at is null"],
+      "checks": ["undone_at is null or undone_at >= completed_at"],
+      "indexes": ["task_id"],
+      "app_access": "read only; write through complete_task and undo_task_completion RPC"
+    },
+    "reviews": {
+      "primary_key": ["id"],
+      "columns": {"id":"uuid default gen_random_uuid()", "plan_id":"uuid not null", "period_start":"date not null", "period_end":"date not null", "improvement":"text not null", "next_plan_id":"uuid nullable", "created_at":"timestamptz not null default now()"},
+      "foreign_keys": [{"columns":["plan_id"],"references":"plans(id)","on_delete":"restrict"}, {"columns":["next_plan_id"],"references":"plans(id)","on_delete":"restrict"}],
+      "unique": ["next_plan_id when non-null"],
+      "checks": ["period_start <= period_end", "btrim(improvement) length > 0", "next_plan_id is null or next_plan_id <> plan_id"]
+    }
+  },
+  "relationships": ["plans 1:N plan_revisions", "plans 1:N tasks", "tasks 1:N work_logs", "tasks 1:N task_completions history with at most one active", "plans 1:N reviews", "reviews.next_plan_id -> plans.id"],
+  "functions": {
+    "complete_task(uuid, uuid)": "task row lock, request_key idempotency, at most one active completion",
+    "undo_task_completion(uuid)": "sets undone_at on active completion",
+    "review_summary(uuid)": "aggregates all tasks of plan_id with deleted_at is null"
+  },
+  "calculations": {
+    "task_deleted": "deleted_at is not null; excluded from current list and review, retained in export",
+    "task_completed": "exists task_completions with matching task_id and undone_at is null",
+    "planned_count": "count live tasks of plan_id; independent of due_on and review period",
+    "completed_count": "count live tasks with active completion",
+    "overdue_count": "count live tasks without active completion and due_on < Seoul today",
+    "blocked_count": "count distinct live tasks having at least one work_log with nonblank blocker_reason",
+    "estimated_minutes": "sum estimated_minutes of live tasks, or 0",
+    "actual_minutes": "sum actual_minutes of all work_logs attached to live tasks, or 0",
+    "difference_minutes": "actual_minutes - estimated_minutes",
+    "review_period": "period_start and period_end are review metadata, not a filter for base C28-C32 summary"
+  },
+  "access": "RLS enabled on six tables. anon/authenticated: public read on all; insert/update on plans, tasks, work_logs, reviews; plans updates limited to six content columns; completion changes through RPC. No browser service-role/secret key or DB password."
+}

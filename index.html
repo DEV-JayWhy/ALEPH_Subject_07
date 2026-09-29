@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f7f4ed" />
+  <title>플랜두씨 · 계획과 실제의 기록</title>
+  <link rel="stylesheet" href="./src/style.css" />
+  <script src="./config.js"></script>
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="masthead">
+      <div class="brand"><span class="brand-mark">P<span>·</span>D<span>·</span>S</span><span class="brand-name">플랜두씨 <small>다이어리 1</small></span></div>
+      <div class="header-actions"><span id="connection-state" class="connection-state">연결 확인 중</span><button id="refresh-btn" type="button" class="ghost small">새로고침</button><button id="export-btn" type="button" class="ghost small">전체 자료 내보내기 ↓</button></div>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy"><p class="eyebrow">PLAN / DO / SEE · ALEPH 06</p><h1 id="hero-title">계획한 만큼,<br /><em>실제로 했을까?</em></h1><p class="intro">계획을 세우고, 실제 시간을 남기고, 다음 계획을 더 나아지게 만드는 공개 다이어리.</p></div>
+        <div class="hero-aside"><div class="hero-num">01 <span>→</span> 03</div><p>계획 <span>→</span> 실행 <span>→</span> 돌아보기</p><p class="hero-note">기록은 브라우저가 아닌 서버 데이터베이스에 저장됩니다.</p></div>
+      </section>
+      <div class="public-notice" role="note"><span class="notice-icon">!</span><p>지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요</p></div>
+
+      <section id="setup" class="setup card hidden" aria-live="polite"><p class="eyebrow">연결 설정</p><h2>공개용 Supabase 연결값이 필요합니다</h2><p><code>config.js</code>에 프로젝트 URL과 공개용 publishable/anon 키를 넣어주세요. 비밀키와 DB 비밀번호는 넣지 마세요.</p><p>설정 후 새로고침하면 실제 DB 자료가 표시됩니다. 자세한 방법은 README에 있습니다.</p></section>
+      <div id="error-banner" class="error-banner hidden" role="alert"></div>
+
+      <nav class="step-nav" aria-label="진행 단계"><button type="button" class="step active" data-view="plan"><b>01</b><span>Plan<small>계획과 수정 이력</small></span></button><button type="button" class="step" data-view="do"><b>02</b><span>Do<small>할 일과 실행 기록</small></span></button><button type="button" class="step" data-view="see"><b>03</b><span>See<small>집계 근거와 다음 계획</small></span></button></nav>
+
+      <div id="loading" class="loading">서버의 기록을 불러오는 중입니다…</div>
+      <div id="workspace" class="hidden">
+        <section id="plan-view" class="view" aria-labelledby="plan-heading">
+          <div class="section-heading"><div><p class="eyebrow">01 / PLAN</p><h2 id="plan-heading">기준이 되는 계획</h2><p>기간과 성공 기준을 정하고, 바뀌기 전 모습도 함께 남깁니다.</p></div><button type="button" id="new-plan-btn" class="outline">새 계획 만들기 +</button></div>
+          <div class="plan-layout"><div class="card"><label for="plan-select" class="field-label">보고 있는 계획</label><select id="plan-select"></select><div id="incoming-improvement" class="incoming hidden"></div><div id="plan-details" class="plan-details"></div><div class="button-row"><button type="button" id="edit-plan-btn" class="primary">이 계획 수정</button><button type="button" id="history-btn" class="outline">수정 이력 보기</button></div></div><div class="card quiet-card"><p class="eyebrow">이 계획의 흐름</p><div id="plan-quick-stats" class="quick-stats"></div><button type="button" class="text-button" data-jump="do">할 일과 실행 기록으로 →</button></div></div>
+          <div id="plan-form-panel" class="card form-panel hidden"><div class="panel-title"><h3 id="plan-form-title">계획 만들기</h3><button type="button" class="icon-button" data-close="plan-form-panel" aria-label="닫기">×</button></div><form id="plan-form"><div class="grid-two"><label>계획 제목<input name="title" required maxlength="160" /></label><label>우선순위<select name="priority"><option value="low">낮음</option><option value="medium">보통</option><option value="high">높음</option></select></label><label>시작일<input name="starts_on" type="date" required /></label><label>종료일<input name="ends_on" type="date" required /></label><label>예상 투자시간 · 분<input name="estimated_minutes" type="number" min="0" step="1" required /></label></div><label>성공 기준<textarea name="success_criteria" rows="3" required></textarea></label><div class="button-row"><button class="primary" type="submit">DB에 저장</button><button type="button" id="prefill-plan-btn" class="outline">ALEPH 실제 계획 양식 채우기</button></div></form></div>
+          <div id="history-panel" class="card hidden"><div class="panel-title"><h3>계획의 모든 버전</h3><button type="button" class="icon-button" data-close="history-panel" aria-label="닫기">×</button></div><div id="revision-list"></div></div>
+        </section>
+
+        <section id="do-view" class="view hidden" aria-labelledby="do-heading">
+          <div class="section-heading"><div><p class="eyebrow">02 / DO</p><h2 id="do-heading">할 일과 실제 기록</h2><p>할 일의 예상과 실제 작업은 각각 따로 저장됩니다.</p></div><div class="button-row"><button id="five-tasks-btn" type="button" class="outline">정해둔 5개 입력</button><button id="new-task-btn" type="button" class="primary">할 일 추가 +</button></div></div>
+          <div id="do-empty" class="card empty-state hidden">먼저 Plan에서 계획을 만드세요.</div>
+          <div id="do-content"><div class="toolbar card"><label>검색<input id="task-search" type="search" placeholder="제목 · 내용 · 태그" /></label><label>상태<select id="status-filter"><option value="all">전체</option><option value="open">진행 중</option><option value="done">완료</option><option value="overdue">지연</option></select></label><label>우선순위<select id="priority-filter"><option value="all">전체</option><option value="high">높음</option><option value="medium">보통</option><option value="low">낮음</option></select></label><label>정렬<select id="task-sort"><option value="due">마감일 빠른 순</option><option value="priority">우선순위 높은 순</option><option value="title">제목 가나다 순</option></select></label><p id="sort-description" class="sort-description"></p></div><div id="task-list" class="task-list"></div></div>
+          <div id="task-form-panel" class="card form-panel hidden"><div class="panel-title"><h3 id="task-form-title">할 일 추가</h3><button type="button" class="icon-button" data-close="task-form-panel" aria-label="닫기">×</button></div><form id="task-form"><div class="grid-two"><label>할 일 제목<input name="title" required maxlength="160" /></label><label>마감일<input name="due_on" type="date" required /></label><label>우선순위<select name="priority"><option value="low">낮음</option><option value="medium">보통</option><option value="high">높음</option></select></label><label>태그<input name="tag" required maxlength="80" placeholder="예: ALEPH" /></label><label>예상시간 · 분<input name="estimated_minutes" type="number" min="0" step="1" required /></label></div><label>내용<textarea name="details" rows="3"></textarea></label><button class="primary" type="submit">할 일 저장</button></form></div>
+          <div id="batch-panel" class="card form-panel hidden"><div class="panel-title"><h3>정해둔 다섯 할 일</h3><button type="button" class="icon-button" data-close="batch-panel" aria-label="닫기">×</button></div><p>제목만 미리 채웠습니다. 실제 마감일·우선순위·태그·예상 분을 직접 정한 뒤 저장하세요. 이미 같은 제목이 있으면 중복 생성하지 않습니다.</p><form id="batch-form"><div id="batch-rows"></div><button type="submit" class="primary">입력한 할 일 저장</button></form></div>
+          <div id="log-form-panel" class="card form-panel hidden"><div class="panel-title"><h3>실제로 한 일 기록</h3><button type="button" class="icon-button" data-close="log-form-panel" aria-label="닫기">×</button></div><p id="log-task-label" class="eyebrow"></p><form id="log-form"><div class="grid-two"><label>시작 시각 · 서울<input name="started_at" type="datetime-local" required /></label><label>종료 시각 · 서울<input name="ended_at" type="datetime-local" required /></label><label>실제 작업시간 · 분<input name="actual_minutes" type="number" min="0" step="1" required /></label></div><label>막힌 이유 · 없으면 빈칸<input name="blocker_reason" /></label><label>진행 내용<input name="note" placeholder="남이 봐도 괜찮은 내용만 적으세요" /></label><p class="form-help">시작·종료는 실제 시각을 입력하세요. 실제 분은 휴식 시간을 뺀 값을 직접 기록할 수 있습니다.</p><button class="primary" type="submit">실행 기록 저장</button></form></div>
+        </section>
+
+        <section id="see-view" class="view hidden" aria-labelledby="see-heading">
+          <div class="section-heading"><div><p class="eyebrow">03 / SEE</p><h2 id="see-heading">숫자에서 원본 기록까지</h2><p>선택한 계획의 삭제되지 않은 모든 할 일이 기준입니다. 카드를 눌러 근거를 확인하세요.</p></div><button type="button" id="see-refresh-btn" class="outline">집계 다시 읽기</button></div>
+          <div id="see-empty" class="card empty-state hidden">먼저 Plan에서 계획을 만드세요.</div><div id="see-content"><div class="metric-grid" id="metric-grid"></div><div id="evidence-panel" class="card evidence-panel"><div class="panel-title"><h3 id="evidence-title">숫자를 선택해 주세요</h3><span id="evidence-count" class="muted"></span></div><p id="evidence-rule" class="muted">각 수치는 실제 할 일·완료·실행 기록으로 이어집니다.</p><div id="evidence-list"></div></div><div class="card review-card"><div class="panel-title"><div><p class="eyebrow">다음 계획으로</p><h3>이번에 고칠 점 한 줄</h3></div></div><form id="review-form"><div class="grid-two"><label>돌아보기 시작일<input name="period_start" type="date" required /></label><label>돌아보기 종료일<input name="period_end" type="date" required /></label></div><label>개선점<input name="improvement" required placeholder="다음 계획에서 바꿀 점 한 가지" /></label><button type="submit" class="primary">돌아보기 저장</button></form><div id="reviews-list" class="reviews-list"></div></div></div>
+        </section>
+      </div>
+    </main>
+    <footer><span>플랜두씨 다이어리 1 · 공개 기록</span><span>날짜 기준 Asia/Seoul · 시간 단위 분 · 서버 DB 저장</span></footer>
+  </div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+</body>
+</html>
